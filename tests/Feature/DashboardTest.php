@@ -2,8 +2,10 @@
 
 use App\Enums\TeamRole;
 use App\Models\Task;
+use App\Models\TaskPlan;
 use App\Models\Team;
 use App\Models\TeamInvitation;
+use App\Models\Usage;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -167,7 +169,13 @@ test('dashboard includes open tasks for the current department', function () {
         ->where('departmentTasks.0.id', $openTask->id)
         ->where('departmentTasks.0.name', 'Fix login')
         ->where('departmentTasks.0.status', 'open')
-        ->where('departmentTasks.0.owner.name', $user->name),
+        ->where('departmentTasks.0.owner.name', $user->name)
+        ->where('departmentTasks.0.usageCount', 0)
+        ->where('departmentTasks.0.tokensInput', 0)
+        ->where('departmentTasks.0.tokensOutput', 0)
+        ->where('departmentTasks.0.costTotal', 0)
+        ->where('departmentTasks.0.currency', null)
+        ->where('departmentTasks.0.planTitle', null),
     );
 });
 
@@ -184,5 +192,47 @@ test('dashboard shows no department tasks for a user without a department', func
         ->component('dashboard')
         ->where('departmentName', null)
         ->has('departmentTasks', 0),
+    );
+});
+
+test('dashboard department tasks include usage and plan aggregates', function () {
+    $user = User::factory()->create();
+    $department = Team::factory()->create(['name' => 'Engineering']);
+    $department->members()->attach($user, ['role' => TeamRole::Owner->value]);
+    $user->switchTeam($department);
+
+    $task = Task::factory()->create([
+        'team_id' => $department->id,
+        'user_id' => $user->id,
+        'name' => 'Fix login',
+    ]);
+
+    Usage::factory()->for($task)->create([
+        'tokens_input' => 1000,
+        'tokens_output' => 500,
+        'cost_total' => '4.00',
+        'currency' => 'USD',
+    ]);
+    Usage::factory()->for($task)->create([
+        'tokens_input' => 2000,
+        'tokens_output' => 1000,
+        'cost_total' => '8.40',
+        'currency' => 'USD',
+    ]);
+    TaskPlan::factory()->for($task)->create(['title' => 'Auth redesign', 'version' => 1]);
+    TaskPlan::factory()->for($task)->create(['title' => 'Auth redesign v2', 'version' => 2]);
+
+    $response = $this->actingAs($user)->get(route('dashboard'));
+
+    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('dashboard')
+        ->has('departmentTasks', 1)
+        ->where('departmentTasks.0.usageCount', 2)
+        ->where('departmentTasks.0.tokensInput', 3000)
+        ->where('departmentTasks.0.tokensOutput', 1500)
+        ->where('departmentTasks.0.costTotal', 12.4)
+        ->where('departmentTasks.0.currency', 'USD')
+        ->where('departmentTasks.0.planTitle', 'Auth redesign v2'),
     );
 });

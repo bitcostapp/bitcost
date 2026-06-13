@@ -39,7 +39,15 @@ class DashboardController extends Controller
             ? Task::query()
                 ->open()
                 ->forDepartment($department)
-                ->with('user:id,name')
+                ->with([
+                    'user:id,name',
+                    'latestUsage',
+                    'latestPlan',
+                ])
+                ->withCount('usages')
+                ->withSum('usages', 'cost_total')
+                ->withSum('usages', 'tokens_input')
+                ->withSum('usages', 'tokens_output')
                 ->latest()
                 ->get()
                 ->map(fn (Task $task) => [
@@ -47,6 +55,12 @@ class DashboardController extends Controller
                     'name' => $task->name,
                     'status' => $task->status->value,
                     'owner' => ['name' => $task->user->name],
+                    'usageCount' => (int) $task->usages_count,
+                    'tokensInput' => (int) $task->usages_sum_tokens_input,
+                    'tokensOutput' => (int) $task->usages_sum_tokens_output,
+                    'costTotal' => (float) $task->usages_sum_cost_total,
+                    'currency' => $task->latestUsage?->currency,
+                    'planTitle' => $task->latestPlan?->title,
                 ])
             : collect();
 
