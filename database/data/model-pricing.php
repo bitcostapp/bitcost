@@ -44,4 +44,13 @@ return [
         'cache_write_price' => 0.0,
         'reasoning_price' => 0.0,
     ],
+    [
+        'provider' => 'openai',
+        'model' => 'gpt-5.4',
+        'input_price' => 1.25,
+        'output_price' => 10.0,
+        'cache_read_price' => 0.125,
+        'cache_write_price' => 0.0,
+        'reasoning_price' => 0.0,
+    ],
 ];
