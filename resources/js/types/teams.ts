@@ -55,3 +55,10 @@ export type RoleOption = {
     value: TeamRole;
     label: string;
 };
+
+export type DepartmentTask = {
+    id: number;
+    name: string;
+    status: string; // 'open'
+    owner: { name: string };
+};
