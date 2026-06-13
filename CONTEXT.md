@@ -51,7 +51,15 @@ Usage to the stamped Task.
 
 **Team**:
 The enterprise workspace. Owns Work Provider and AI Provider connections, Users, and
-the aggregated Cost view. (Existing model.)
+the aggregated Cost view. (Existing model.) A Team may be a **Department** or a
+**personal team** — distinguished by the `is_personal` flag.
+
+**Department**:
+A non-personal Team (`is_personal = false`) — the business meaning of a Team within an
+organization (e.g., Engineering). A **personal team** (`is_personal = true`) is an
+individual fallback workspace and is **not** a Department. A User may therefore have no
+Department (only a personal team, or no current team at all); consumers must treat
+"no Department" as a valid state.
 
 **User**:
 A member of a Team who works on Tasks using AI Provider tokens issued through Bitcost.
