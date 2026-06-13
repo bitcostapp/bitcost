@@ -46,7 +46,12 @@ over-engineered for a one-shot seed and harder to gate to "this bind".
      `{ id; task_id; title?: string | null; body: string; source?: string;
      version?: number; created_at?: string | null }` (matches `TaskPlanResource`).
 
-2. **`DialogBitcostTask.bind(taskID)`** — after a successful `bindTask` +
+2. **`DialogBitcostTask.bind(taskID)`** — seeding is **gated to the explicit
+   `/task` command** via an optional `seedPrompt?: (prompt: PromptInfo) => void`
+   prop. The picker is also opened by the mandatory submit-gate (fires on
+   already-typed input) and by session-restore; those callers do NOT pass
+   `seedPrompt`, so `bind()` skips the plan fetch entirely and behaves exactly as
+   today. When `seedPrompt` is set, after a successful `bindTask` +
    `markBitcostBound`, fetch the latest plan. If `plan?.body` is non-empty:
    - **From-home path** (`created === true`; the session was just created and is
      therefore empty): seed via the existing route mechanism —
@@ -56,17 +61,27 @@ over-engineered for a one-shot seed and harder to gate to "this bind".
      prompt-mount race.
    - **Existing-session path** (`/task` run inside a session,
      `created === false`): gate on empty session — `sync.data.message[sessionID]`
-     absent or length 0 — **and** current prompt input empty
-     (`promptRef.current?.current.input` is empty). If both hold, call
-     `promptRef.current?.set({ input: plan.body, parts: [] })` then `.focus()`.
+     absent or length 0 — then call `props.seedPrompt(seed)`. The call-site
+     `seedPrompt` impl guards the empty-input condition (don't clobber typed text)
+     before `promptRef.current?.set(...)` + `.focus()`.
    - If `plan` is `null` or `body` empty → behave exactly as today (bind, toast,
      navigate with no prompt). No error surfaced.
 
+### Provider-tree constraint (discovered in implementation)
+
+`DialogProvider` is an *ancestor* of `PromptRefProvider` in `app.tsx`, so a dialog
+renders **outside** the PromptRef provider — calling `usePromptRef()` inside the
+dialog throws "context must be used within a context provider". The prompt-seeding
+capability is therefore **injected from the call site** (the `/task` command, where
+`promptRef` is in scope) via the `seedPrompt` prop, not resolved in the dialog.
+`useSync()` *is* available in the dialog (`SyncProvider` sits above
+`DialogProvider`), so the empty-session check stays in the dialog.
+
 ### New dialog dependencies
 
-`DialogBitcostTask` gains two existing contexts:
-- `usePromptRef()` — to seed the live prompt on the existing-session path.
 - `useSync()` — to read `sync.data.message[sessionID]` for the empty-session check.
+- `seedPrompt` prop (from the `/task` command) — to set the live prompt; the
+  command supplies `promptRef`-backed logic and the empty-input guard.
 
 ## Data flow
 
