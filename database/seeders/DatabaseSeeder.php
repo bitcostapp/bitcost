@@ -47,5 +47,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->call(PassportDeviceClientSeeder::class);
+        $this->call(ModelPricingSeeder::class);
+        $this->call(TaskSeeder::class);
     }
 }
