@@ -61,4 +61,10 @@ export type DepartmentTask = {
     name: string;
     status: string; // 'open'
     owner: { name: string };
+    usageCount: number;
+    tokensInput: number;
+    tokensOutput: number;
+    costTotal: number;
+    currency: string | null;
+    planTitle: string | null;
 };

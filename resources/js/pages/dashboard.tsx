@@ -7,6 +7,24 @@ import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
 import { dashboard } from '@/routes';
 import type { DashboardInvitation, DepartmentTask } from '@/types';
 
+function formatCost(amount: number, currency: string | null): string {
+    if (!currency) {
+        return amount.toFixed(2);
+    }
+
+    return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency,
+    }).format(amount);
+}
+
+function formatTokens(total: number): string {
+    return new Intl.NumberFormat(undefined, {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+    }).format(total);
+}
+
 type Props = {
     pendingInvitations?: DashboardInvitation[];
     departmentTasks?: DepartmentTask[];
@@ -64,18 +82,42 @@ export default function Dashboard({
                                 {departmentTasks.map((task) => (
                                     <li
                                         key={task.id}
-                                        className="flex items-center justify-between gap-4 py-3"
+                                        className="flex items-start justify-between gap-4 py-3"
                                     >
-                                        <span className="truncate font-medium">
-                                            {task.name}
-                                        </span>
-                                        <span className="flex shrink-0 items-center gap-3">
-                                            <span className="text-sm text-muted-foreground">
-                                                {task.owner.name}
+                                        <span className="min-w-0">
+                                            <span className="block truncate font-medium">
+                                                {task.name}
                                             </span>
+                                            {task.planTitle ? (
+                                                <span className="block truncate text-xs text-muted-foreground">
+                                                    plan: {task.planTitle}
+                                                </span>
+                                            ) : null}
+                                        </span>
+                                        <span className="flex shrink-0 items-center gap-3 text-sm text-muted-foreground">
+                                            <span>{task.owner.name}</span>
                                             <Badge variant="secondary">
                                                 {task.status}
                                             </Badge>
+                                            <span>
+                                                {formatCost(
+                                                    task.costTotal,
+                                                    task.currency,
+                                                )}
+                                            </span>
+                                            <span>
+                                                {formatTokens(
+                                                    task.tokensInput +
+                                                        task.tokensOutput,
+                                                )}{' '}
+                                                tok
+                                            </span>
+                                            <span>
+                                                {task.usageCount}{' '}
+                                                {task.usageCount === 1
+                                                    ? 'turn'
+                                                    : 'turns'}
+                                            </span>
                                         </span>
                                     </li>
                                 ))}
