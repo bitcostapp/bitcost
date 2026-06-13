@@ -28,6 +28,12 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $deleted_at
  * @property-read Team|null $team
  * @property-read User $user
+ * @property-read Usage|null $latestUsage
+ * @property-read TaskPlan|null $latestPlan
+ * @property-read int|null $usages_count
+ * @property-read int|null $usages_sum_tokens_input
+ * @property-read int|null $usages_sum_tokens_output
+ * @property-read string|null $usages_sum_cost_total
  */
 #[Fillable(['team_id', 'user_id', 'name', 'status', 'external_url', 'external_provider', 'completed_at'])]
 class Task extends Model
@@ -92,7 +98,7 @@ class Task extends Model
      */
     public function latestPlan(): HasOne
     {
-        return $this->hasOne(TaskPlan::class)->latestOfMany('version');
+        return $this->hasOne(TaskPlan::class)->ofMany(['version' => 'max', 'id' => 'max']);
     }
 
     /**

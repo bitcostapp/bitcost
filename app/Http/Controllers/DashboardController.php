@@ -50,6 +50,8 @@ class DashboardController extends Controller
                 ->withSum('usages', 'tokens_output')
                 ->latest()
                 ->get()
+                // `costTotal` sums cost_total across all usages; `currency` reflects
+                // the latest usage only — correct for the normal single-currency case.
                 ->map(fn (Task $task) => [
                     'id' => $task->id,
                     'name' => $task->name,
