@@ -355,3 +355,276 @@ Run the app (`npm run dev` + serve), log in as a user whose current team is a no
 - No new route or REST endpoint — Inertia props only.
 - No async refresh/polling, no cost/usage columns, no pagination, no click-through to `external_url`.
 - "Department" = the user's `currentTeam` when non-personal; a personal/absent current team is a valid "no department" state and must not fall back to department-less (`team_id IS NULL`) tasks.
+
+---
+
+## Task 4 (v2): Backend — usage & plan aggregates
+
+**Files:**
+- Modify: `app/Models/Task.php` (add `latestUsage` + `latestPlan` relations)
+- Modify: `app/Http/Controllers/DashboardController.php` (aggregate the query + map)
+- Test: `tests/Feature/DashboardTest.php`
+
+- [ ] **Step 1: Add `Usage` + `TaskPlan` imports to the test file**
+
+Ensure `tests/Feature/DashboardTest.php` imports include:
+
+```php
+use App\Models\Task;
+use App\Models\TaskPlan;
+use App\Models\Usage;
+```
+
+- [ ] **Step 2: Extend the existing "current department" test to assert empty aggregates**
+
+In the test `dashboard includes open tasks for the current department`, add these
+assertions inside the existing `assertInertia` chain for `departmentTasks.0`
+(the open task has no usages/plans, so aggregates default to zero/null):
+
+```php
+        ->where('departmentTasks.0.usageCount', 0)
+        ->where('departmentTasks.0.tokensInput', 0)
+        ->where('departmentTasks.0.tokensOutput', 0)
+        ->where('departmentTasks.0.costTotal', 0)
+        ->where('departmentTasks.0.currency', null)
+        ->where('departmentTasks.0.planTitle', null)
+```
+
+- [ ] **Step 3: Add a new aggregate test**
+
+Append to `tests/Feature/DashboardTest.php`:
+
+```php
+test('dashboard department tasks include usage and plan aggregates', function () {
+    $user = User::factory()->create();
+    $department = Team::factory()->create(['name' => 'Engineering']);
+    $department->members()->attach($user, ['role' => TeamRole::Owner->value]);
+    $user->switchTeam($department);
+
+    $task = Task::factory()->create([
+        'team_id' => $department->id,
+        'user_id' => $user->id,
+        'name' => 'Fix login',
+    ]);
+
+    Usage::factory()->for($task)->create([
+        'tokens_input' => 1000,
+        'tokens_output' => 500,
+        'cost_total' => '4.00',
+        'currency' => 'USD',
+    ]);
+    Usage::factory()->for($task)->create([
+        'tokens_input' => 2000,
+        'tokens_output' => 1000,
+        'cost_total' => '8.40',
+        'currency' => 'USD',
+    ]);
+    TaskPlan::factory()->for($task)->create(['title' => 'Auth redesign', 'version' => 1]);
+    TaskPlan::factory()->for($task)->create(['title' => 'Auth redesign v2', 'version' => 2]);
+
+    $response = $this->actingAs($user)->get(route('dashboard'));
+
+    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('dashboard')
+        ->has('departmentTasks', 1)
+        ->where('departmentTasks.0.usageCount', 2)
+        ->where('departmentTasks.0.tokensInput', 3000)
+        ->where('departmentTasks.0.tokensOutput', 1500)
+        ->where('departmentTasks.0.costTotal', 12.4)
+        ->where('departmentTasks.0.currency', 'USD')
+        ->where('departmentTasks.0.planTitle', 'Auth redesign v2'),
+    );
+});
+```
+
+- [ ] **Step 4: Run the tests, confirm they FAIL**
+
+Run: `./vendor/bin/pest --filter="department|aggregates"`
+Expected: FAIL (aggregate fields missing).
+
+- [ ] **Step 5: Add the relations to `app/Models/Task.php`**
+
+Add `use Illuminate\Database\Eloquent\Relations\HasOne;` to the imports, then add
+these two methods to the `Task` class (next to the existing `usages()` / `plans()`):
+
+```php
+    /**
+     * The most recently reported usage for this task (used for currency).
+     *
+     * @return HasOne<Usage, $this>
+     */
+    public function latestUsage(): HasOne
+    {
+        return $this->hasOne(Usage::class)->latestOfMany('id');
+    }
+
+    /**
+     * The latest plan/design doc attached to this task (highest version).
+     *
+     * @return HasOne<TaskPlan, $this>
+     */
+    public function latestPlan(): HasOne
+    {
+        return $this->hasOne(TaskPlan::class)->latestOfMany('version');
+    }
+```
+
+- [ ] **Step 6: Update the `departmentTasks` query + map in `DashboardController`**
+
+Replace the `$departmentTasks = $isDepartment ? ... : collect();` assignment with:
+
+```php
+        $departmentTasks = $isDepartment
+            ? Task::query()
+                ->open()
+                ->forDepartment($department)
+                ->with([
+                    'user:id,name',
+                    'latestUsage:id,task_id,currency',
+                    'latestPlan:id,task_id,title,version',
+                ])
+                ->withCount('usages')
+                ->withSum('usages', 'cost_total')
+                ->withSum('usages', 'tokens_input')
+                ->withSum('usages', 'tokens_output')
+                ->latest()
+                ->get()
+                ->map(fn (Task $task) => [
+                    'id' => $task->id,
+                    'name' => $task->name,
+                    'status' => $task->status->value,
+                    'owner' => ['name' => $task->user->name],
+                    'usageCount' => (int) $task->usages_count,
+                    'tokensInput' => (int) $task->usages_sum_tokens_input,
+                    'tokensOutput' => (int) $task->usages_sum_tokens_output,
+                    'costTotal' => (float) $task->usages_sum_cost_total,
+                    'currency' => $task->latestUsage?->currency,
+                    'planTitle' => $task->latestPlan?->title,
+                ])
+            : collect();
+```
+
+- [ ] **Step 7: Run the tests, confirm they PASS**
+
+Run: `./vendor/bin/pest --filter="department|aggregates"`
+Expected: PASS.
+
+- [ ] **Step 8: Run the full suite for regressions**
+
+Run: `php artisan test`
+Expected: PASS (all tests).
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add app/Models/Task.php app/Http/Controllers/DashboardController.php tests/Feature/DashboardTest.php
+git commit -m "feat: add usage and plan aggregates to department dashboard tasks"
+```
+
+---
+
+## Task 5 (v2): Frontend — render aggregates
+
+**Files:**
+- Modify: `resources/js/types/teams.ts`
+- Modify: `resources/js/pages/dashboard.tsx`
+
+- [ ] **Step 1: Extend the `DepartmentTask` type in `resources/js/types/teams.ts`**
+
+Replace the existing `DepartmentTask` type with:
+
+```ts
+export type DepartmentTask = {
+    id: number;
+    name: string;
+    status: string; // 'open'
+    owner: { name: string };
+    usageCount: number;
+    tokensInput: number;
+    tokensOutput: number;
+    costTotal: number;
+    currency: string | null;
+    planTitle: string | null;
+};
+```
+
+- [ ] **Step 2: Add formatting helpers + render aggregates in `resources/js/pages/dashboard.tsx`**
+
+Add these module-scope helpers (above the `Dashboard` component):
+
+```tsx
+function formatCost(amount: number, currency: string | null): string {
+    if (!currency) {
+        return amount.toFixed(2);
+    }
+
+    return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency,
+    }).format(amount);
+}
+
+function formatTokens(total: number): string {
+    return new Intl.NumberFormat(undefined, {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+    }).format(total);
+}
+```
+
+Replace the `<li>` task row inside the list with:
+
+```tsx
+                                {departmentTasks.map((task) => (
+                                    <li
+                                        key={task.id}
+                                        className="flex items-start justify-between gap-4 py-3"
+                                    >
+                                        <span className="min-w-0">
+                                            <span className="block truncate font-medium">
+                                                {task.name}
+                                            </span>
+                                            {task.planTitle ? (
+                                                <span className="block truncate text-xs text-muted-foreground">
+                                                    plan: {task.planTitle}
+                                                </span>
+                                            ) : null}
+                                        </span>
+                                        <span className="flex shrink-0 items-center gap-3 text-sm text-muted-foreground">
+                                            <span>{task.owner.name}</span>
+                                            <Badge variant="secondary">
+                                                {task.status}
+                                            </Badge>
+                                            <span>
+                                                {formatCost(
+                                                    task.costTotal,
+                                                    task.currency,
+                                                )}
+                                            </span>
+                                            <span>
+                                                {formatTokens(
+                                                    task.tokensInput +
+                                                        task.tokensOutput,
+                                                )}{' '}
+                                                tok
+                                            </span>
+                                            <span>
+                                                {task.usageCount}{' '}
+                                                {task.usageCount === 1
+                                                    ? 'turn'
+                                                    : 'turns'}
+                                            </span>
+                                        </span>
+                                    </li>
+                                ))}
+```
+
+- [ ] **Step 3: Run `npm run types:check`** — expect PASS.
+- [ ] **Step 4: Run `npm run lint:check`** — expect PASS (run `npm run format` first if needed; do not change logic).
+- [ ] **Step 5: Commit**
+
+```bash
+git add resources/js/types/teams.ts resources/js/pages/dashboard.tsx
+git commit -m "feat: render usage and plan aggregates on department dashboard"
+```
