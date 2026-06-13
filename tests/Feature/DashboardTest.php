@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TeamRole;
+use App\Models\Task;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
@@ -132,4 +133,56 @@ test('dashboard does not include or delete other users invitations', function ()
     $this->assertDatabaseHas('team_invitations', [
         'id' => $invitation->id,
     ]);
+});
+
+test('dashboard includes open tasks for the current department', function () {
+    $user = User::factory()->create();
+    $department = Team::factory()->create(['name' => 'Engineering']); // is_personal = false
+    $department->members()->attach($user, ['role' => TeamRole::Owner->value]);
+    $user->switchTeam($department);
+
+    $openTask = Task::factory()->create([
+        'team_id' => $department->id,
+        'user_id' => $user->id,
+        'name' => 'Fix login',
+    ]);
+
+    // Excluded: completed task in the same department.
+    Task::factory()->completed()->create([
+        'team_id' => $department->id,
+        'user_id' => $user->id,
+    ]);
+
+    // Excluded: open task in a different department.
+    $otherDepartment = Team::factory()->create();
+    Task::factory()->create(['team_id' => $otherDepartment->id, 'user_id' => $user->id]);
+
+    $response = $this->actingAs($user)->get(route('dashboard'));
+
+    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('dashboard')
+        ->where('departmentName', 'Engineering')
+        ->has('departmentTasks', 1)
+        ->where('departmentTasks.0.id', $openTask->id)
+        ->where('departmentTasks.0.name', 'Fix login')
+        ->where('departmentTasks.0.status', 'open')
+        ->where('departmentTasks.0.owner.name', $user->name),
+    );
+});
+
+test('dashboard shows no department tasks for a user without a department', function () {
+    $user = User::factory()->create(); // currentTeam is a personal team
+
+    // An unrelated open task in some other department must not leak in.
+    Task::factory()->create(['user_id' => $user->id]);
+
+    $response = $this->actingAs($user)->get(route('dashboard'));
+
+    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('dashboard')
+        ->where('departmentName', null)
+        ->has('departmentTasks', 0),
+    );
 });

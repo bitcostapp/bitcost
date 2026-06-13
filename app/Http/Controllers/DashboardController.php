@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Task;
 use App\Models\TeamInvitation;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -31,8 +32,28 @@ class DashboardController extends Controller
                 ],
             ]);
 
+        $department = $request->user()->currentTeam;
+        $isDepartment = $department && ! $department->is_personal;
+
+        $departmentTasks = $isDepartment
+            ? Task::query()
+                ->open()
+                ->forDepartment($department)
+                ->with('user:id,name')
+                ->latest()
+                ->get()
+                ->map(fn (Task $task) => [
+                    'id' => $task->id,
+                    'name' => $task->name,
+                    'status' => $task->status->value,
+                    'owner' => ['name' => $task->user->name],
+                ])
+            : collect();
+
         return Inertia::render('dashboard', [
             'pendingInvitations' => $pendingInvitations,
+            'departmentTasks' => $departmentTasks,
+            'departmentName' => $isDepartment ? $department->name : null,
         ]);
     }
 }
