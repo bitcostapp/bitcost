@@ -4,8 +4,27 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Bitcost — Connect your CLI</title>
-    {{-- If embedded in an iframe, break out so form submission isn't sandboxed. --}}
-    <script>if (window.top !== window.self) { window.top.location.href = window.location.href; }</script>
+    {{-- If embedded in an iframe, break out so form submission isn't sandboxed.
+         A strict sandbox forbids the breakout (and blocks the form), so we catch
+         that and show a user-clickable escape into a real top-level browser. --}}
+    <script>
+        (function () {
+            if (window.top === window.self) return;
+            try {
+                window.top.location.href = window.location.href;
+            } catch (e) {
+                window.addEventListener("DOMContentLoaded", function () {
+                    var url = window.location.href;
+                    var bar = document.createElement("div");
+                    bar.style.cssText = "position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:1.5rem;background:#0f172a;color:#fff;font-family:system-ui,sans-serif;text-align:center";
+                    bar.innerHTML = '<div style="max-width:420px"><p style="font-size:1rem;margin:0 0 1rem">This page is embedded and can’t complete sign-in here.</p>' +
+                        '<a href="' + url + '" target="_top" rel="noopener" style="display:inline-block;padding:.7rem 1.1rem;border-radius:10px;background:#2563eb;color:#fff;text-decoration:none;font-weight:600">Open Bitcost sign-in in your browser ↗</a>' +
+                        '<p style="font-size:.8rem;color:#94a3b8;margin:1rem 0 0;word-break:break-all">' + url + '</p></div>';
+                    document.body.appendChild(bar);
+                });
+            }
+        })();
+    </script>
     <style>
         :root {
             --white: #ffffff; --slate-50: #f8fafc; --slate-200: #e2e8f0;

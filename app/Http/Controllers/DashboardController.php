@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Task;
 use App\Models\TeamInvitation;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -31,8 +32,44 @@ class DashboardController extends Controller
                 ],
             ]);
 
+        $department = $request->user()->currentTeam;
+        $isDepartment = $department && ! $department->is_personal;
+
+        $departmentTasks = $isDepartment
+            ? Task::query()
+                ->open()
+                ->forDepartment($department)
+                ->with([
+                    'user:id,name',
+                    'latestUsage',
+                    'latestPlan',
+                ])
+                ->withCount('usages')
+                ->withSum('usages', 'cost_total')
+                ->withSum('usages', 'tokens_input')
+                ->withSum('usages', 'tokens_output')
+                ->latest()
+                ->get()
+                // `costTotal` sums cost_total across all usages; `currency` reflects
+                // the latest usage only — correct for the normal single-currency case.
+                ->map(fn (Task $task) => [
+                    'id' => $task->id,
+                    'name' => $task->name,
+                    'status' => $task->status->value,
+                    'owner' => ['name' => $task->user->name],
+                    'usageCount' => (int) $task->usages_count,
+                    'tokensInput' => (int) $task->usages_sum_tokens_input,
+                    'tokensOutput' => (int) $task->usages_sum_tokens_output,
+                    'costTotal' => (float) $task->usages_sum_cost_total,
+                    'currency' => $task->latestUsage?->currency,
+                    'planTitle' => $task->latestPlan?->title,
+                ])
+            : collect();
+
         return Inertia::render('dashboard', [
             'pendingInvitations' => $pendingInvitations,
+            'departmentTasks' => $departmentTasks,
+            'departmentName' => $isDepartment ? $department->name : null,
         ]);
     }
 }
