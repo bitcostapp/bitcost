@@ -9,9 +9,11 @@ rolls up per Task and per Department.
 ## Language
 
 **Task**:
-A unit of work, **owned by Bitcost** and scoped to a Department (Team) and User. The
-User creates and selects a Task through the Bitcost CLI; each CLI Session is attributed
-to a Task, and a Task accumulates Usage across one or more Sessions.
+A unit of work, **owned by Bitcost** and scoped to a Department (Team) and — once
+claimed — a User. The User creates and selects a Task through the Bitcost CLI; each CLI
+Session is attributed to a Task, and a Task accumulates Usage across one or more Sessions.
+A Task may also be added by an **admin** directly to a Department, in which case it starts
+**unassigned** (no owning User) until a User claims it; "unassigned" is a valid state.
 A Task has an `open → completed` lifecycle — once completed it is **locked** (no further
 usage accepted) and disappears from the CLI's task list. A Task may carry an optional
 external link (Jira/GitHub) for future association, but Bitcost is the system of record.
@@ -23,8 +25,11 @@ Usage → Task → Department.
 
 **Work Provider**:
 _(Future/optional.)_ An external system (Jira, GitHub) a Task may link to via its optional
-external link. Not the system of record — Bitcost owns Tasks.
-_Avoid_: "provider" unqualified
+external link. Not the system of record — Bitcost owns Tasks. A Task with **no** Work
+Provider link is **Internal** (Bitcost-native) — "Internal" is not a separate provider,
+it is the absence of a Work Provider link. There is no first-class "Task Provider"
+concept; a Task's origin is simply *which Work Provider it is linked to, or none*.
+_Avoid_: "provider" unqualified; "Task Provider" (use Work Provider link / Internal)
 
 **AI Provider**:
 An external LLM vendor whose API consumes tokens and therefore generates cost —

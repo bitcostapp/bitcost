@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\TaskProvider;
 use App\Enums\TaskStatus;
 use Database\Factories\TaskFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,7 +30,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read Team|null $team
- * @property-read User $user
+ * @property-read User|null $user
+ * @property-read TaskProvider $provider
  * @property-read Usage|null $latestUsage
  * @property-read TaskPlan|null $latestPlan
  * @property-read int|null $usages_count
@@ -133,6 +136,19 @@ class Task extends Model
         $departmentId = $team && ! $team->is_personal ? $team->id : null;
 
         $query->where('team_id', $departmentId);
+    }
+
+    /**
+     * The Work Provider this Task is linked to, or Internal when there is no
+     * external link. Derived from `external_provider`.
+     *
+     * @return Attribute<TaskProvider, never>
+     */
+    protected function provider(): Attribute
+    {
+        return Attribute::get(
+            fn (): TaskProvider => TaskProvider::fromExternalProvider($this->external_provider),
+        );
     }
 
     /**

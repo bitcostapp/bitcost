@@ -35,4 +35,19 @@ return [
         ],
     ],
 
+    'github' => [
+        // The fixed repository (owner/name) the GitHub Work Provider imports
+        // Tasks from, read via the `gh` CLI.
+        'tasks_repo' => env('GITHUB_TASKS_REPO'),
+
+        // Absolute path to the `gh` binary. PHP-FPM (e.g. Herd) runs with a
+        // minimal PATH that usually omits /opt/homebrew/bin, so a bare "gh"
+        // is not found. Defaults to "gh" for the CLI/test context.
+        'gh_path' => env('GITHUB_GH_PATH', 'gh'),
+
+        // Optional token so `gh` authenticates without the macOS keyring,
+        // which a background FPM process may not be able to reach.
+        'token' => env('GH_TOKEN'),
+    ],
+
 ];

@@ -36,7 +36,7 @@ class ShowTaskController extends Controller
                 'name' => $task->name,
                 'content' => $task->content,
                 'status' => $task->status->value,
-                'owner' => ['name' => $task->user->name],
+                'owner' => ['name' => $task->user?->name],
                 'departmentName' => $department->name,
                 'createdAt' => $task->created_at?->toIso8601String(),
                 'externalUrl' => $task->external_url,

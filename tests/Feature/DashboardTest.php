@@ -195,6 +195,60 @@ test('dashboard shows no department tasks for a user without a department', func
     );
 });
 
+test('dashboard my tasks include only the current user open tasks in the department', function () {
+    $user = User::factory()->create();
+    $teammate = User::factory()->create();
+    $department = Team::factory()->create(['name' => 'Engineering']);
+    $department->members()->attach($user, ['role' => TeamRole::Owner->value]);
+    $department->members()->attach($teammate, ['role' => TeamRole::Member->value]);
+    $user->switchTeam($department);
+
+    $myOpenTask = Task::factory()->create([
+        'team_id' => $department->id,
+        'user_id' => $user->id,
+        'name' => 'My open task',
+    ]);
+
+    // Excluded from My tasks: a teammate's open task (still in department tasks).
+    Task::factory()->create([
+        'team_id' => $department->id,
+        'user_id' => $teammate->id,
+        'name' => 'Teammate task',
+    ]);
+
+    // Excluded from My tasks: my own completed task.
+    Task::factory()->completed()->create([
+        'team_id' => $department->id,
+        'user_id' => $user->id,
+    ]);
+
+    $response = $this->actingAs($user)->get(route('dashboard'));
+
+    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('dashboard')
+        ->has('departmentTasks', 2)
+        ->has('myTasks', 1)
+        ->where('myTasks.0.id', $myOpenTask->id)
+        ->where('myTasks.0.name', 'My open task')
+        ->where('myTasks.0.owner.name', $user->name),
+    );
+});
+
+test('dashboard shows no my tasks for a user without a department', function () {
+    $user = User::factory()->create(); // currentTeam is a personal team
+
+    Task::factory()->create(['user_id' => $user->id]);
+
+    $response = $this->actingAs($user)->get(route('dashboard'));
+
+    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('dashboard')
+        ->has('myTasks', 0),
+    );
+});
+
 test('dashboard department tasks include usage and plan aggregates', function () {
     $user = User::factory()->create();
     $department = Team::factory()->create(['name' => 'Engineering']);
