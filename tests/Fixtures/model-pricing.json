@@ -1,0 +1,24 @@
+[
+    {
+        "provider": "anthropic",
+        "model": "claude-fixture",
+        "variant": null,
+        "input_price": 3,
+        "output_price": 15,
+        "cache_read_price": 0.3,
+        "cache_write_price": 3.75,
+        "reasoning_price": null,
+        "currency": "USD"
+    },
+    {
+        "provider": "openai",
+        "model": "gpt-fixture",
+        "variant": null,
+        "input_price": 1.25,
+        "output_price": 10,
+        "cache_read_price": 0.125,
+        "cache_write_price": null,
+        "reasoning_price": null,
+        "currency": "USD"
+    }
+]

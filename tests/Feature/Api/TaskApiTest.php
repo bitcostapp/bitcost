@@ -31,15 +31,17 @@ test('creating a task requires authentication', function () {
 test('index returns only the open tasks owned by the user in their department', function () {
     $user = userInDepartment($department);
     Passport::actingAs($user);
+    $traceId = 'task-index:test-trace';
 
     $open = Task::factory()->for($user)->for($department, 'team')->create(['name' => 'Open one']);
     Task::factory()->completed()->for($user)->for($department, 'team')->create(['name' => 'Done']);
 
-    $response = $this->getJson('/api/tasks')->assertOk();
+    $response = $this->withHeader('X-Bitcost-Trace-ID', $traceId)->getJson('/api/tasks')->assertOk();
 
     $response->assertJsonCount(1, 'data');
     $response->assertJsonPath('data.0.id', $open->id);
     $response->assertJsonPath('data.0.status', TaskStatus::Open->value);
+    $response->assertHeader('X-Bitcost-Trace-ID', $traceId);
 });
 
 test('index does not leak tasks from other users or other departments', function () {
@@ -69,16 +71,37 @@ test('a user with only a personal team sees their department-less tasks', functi
 test('store creates an open task scoped to the current department', function () {
     $user = userInDepartment($department);
     Passport::actingAs($user);
+    $traceId = 'task-create:test-trace';
 
-    $response = $this->postJson('/api/tasks', ['name' => 'Build auth'])->assertCreated();
+    $response = $this
+        ->withHeader('X-Bitcost-Trace-ID', $traceId)
+        ->postJson('/api/tasks', ['name' => 'Build auth'])
+        ->assertCreated();
 
     $response->assertJsonPath('data.name', 'Build auth');
     $response->assertJsonPath('data.status', TaskStatus::Open->value);
+    $response->assertHeader('X-Bitcost-Trace-ID', $traceId);
     $this->assertDatabaseHas('tasks', [
         'name' => 'Build auth',
         'user_id' => $user->id,
         'team_id' => $department->id,
         'status' => TaskStatus::Open->value,
+    ]);
+});
+
+test('store persists the task content and returns it', function () {
+    $user = userInDepartment($department);
+    Passport::actingAs($user);
+
+    $response = $this
+        ->postJson('/api/tasks', ['name' => 'Build auth', 'content' => '# Goal\n\nShip login.'])
+        ->assertCreated();
+
+    $response->assertJsonPath('data.content', '# Goal\n\nShip login.');
+    $this->assertDatabaseHas('tasks', [
+        'name' => 'Build auth',
+        'content' => '# Goal\n\nShip login.',
+        'user_id' => $user->id,
     ]);
 });
 

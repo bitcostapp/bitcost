@@ -1,43 +1,110 @@
-import { Head } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, Link } from '@inertiajs/react';
+import { Github } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import PendingInvitationsModal from '@/components/pending-invitations-modal';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
+import { formatCost, formatTokens } from '@/lib/format';
 import { dashboard } from '@/routes';
+import { show as taskShow } from '@/routes/tasks';
 import type { DashboardInvitation, DepartmentTask } from '@/types';
 
-function formatCost(amount: number, currency: string | null): string {
-    if (!currency) {
-        return amount.toFixed(2);
-    }
-
-    return new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency,
-    }).format(amount);
+function JiraIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            className={className}
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+        >
+            <path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.005-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215h2.129v2.057A5.215 5.215 0 0 0 24 12.483V1.005A1.001 1.001 0 0 0 23.013 0z" />
+        </svg>
+    );
 }
 
-function formatTokens(total: number): string {
-    return new Intl.NumberFormat(undefined, {
-        notation: 'compact',
-        maximumFractionDigits: 1,
-    }).format(total);
+type TaskStats = {
+    openTasks: number;
+    costTotal: number;
+    currency: string | null;
+    tokensTotal: number;
+    turnsTotal: number;
+};
+
+function aggregateTaskStats(tasks: DepartmentTask[]): TaskStats {
+    return tasks.reduce<TaskStats>(
+        (stats, task) => ({
+            openTasks: stats.openTasks + 1,
+            costTotal: stats.costTotal + task.costTotal,
+            currency: stats.currency ?? task.currency,
+            tokensTotal:
+                stats.tokensTotal + task.tokensInput + task.tokensOutput,
+            turnsTotal: stats.turnsTotal + task.usageCount,
+        }),
+        {
+            openTasks: 0,
+            costTotal: 0,
+            currency: null,
+            tokensTotal: 0,
+            turnsTotal: 0,
+        },
+    );
+}
+
+function ConnectCard({
+    provider,
+    icon,
+}: {
+    provider: string;
+    icon: ReactNode;
+}) {
+    return (
+        <Card className="flex aspect-video flex-col justify-between">
+            <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
+                    {icon}
+                </span>
+                <CardTitle className="text-base">{provider}</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Button variant="outline" className="w-full" disabled>
+                    Connect with {provider}
+                </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
+function StatRow({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="flex items-baseline justify-between gap-2">
+            <span className="text-sm text-muted-foreground">{label}</span>
+            <span className="font-medium tabular-nums">{value}</span>
+        </div>
+    );
 }
 
 type Props = {
     pendingInvitations?: DashboardInvitation[];
     departmentTasks?: DepartmentTask[];
     departmentName?: string | null;
+    currentTeam?: { slug: string } | null;
 };
 
 export default function Dashboard({
     pendingInvitations = [],
     departmentTasks = [],
     departmentName = null,
+    currentTeam = null,
 }: Props) {
     const [showInvitations, setShowInvitations] = useState(
         pendingInvitations.length > 0,
+    );
+
+    const stats = useMemo(
+        () => aggregateTaskStats(departmentTasks),
+        [departmentTasks],
     );
 
     return (
@@ -50,15 +117,42 @@ export default function Dashboard({
             />
             <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-                    <div className="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                    </div>
-                    <div className="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                    </div>
-                    <div className="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                        <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                    </div>
+                    <ConnectCard
+                        provider="GitHub"
+                        icon={<Github className="size-5" />}
+                    />
+                    <ConnectCard
+                        provider="Jira"
+                        icon={<JiraIcon className="size-5" />}
+                    />
+                    <Card className="flex aspect-video flex-col">
+                        <CardHeader>
+                            <CardTitle className="text-base">
+                                Statistics
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex flex-1 flex-col justify-center gap-2">
+                            <StatRow
+                                label="Open tasks"
+                                value={String(stats.openTasks)}
+                            />
+                            <StatRow
+                                label="Total cost"
+                                value={formatCost(
+                                    stats.costTotal,
+                                    stats.currency,
+                                )}
+                            />
+                            <StatRow
+                                label="Total tokens"
+                                value={formatTokens(stats.tokensTotal)}
+                            />
+                            <StatRow
+                                label="Total turns"
+                                value={String(stats.turnsTotal)}
+                            />
+                        </CardContent>
+                    </Card>
                 </div>
                 <Card className="min-h-[100vh] flex-1 md:min-h-min">
                     <CardHeader>
@@ -85,9 +179,21 @@ export default function Dashboard({
                                         className="flex items-start justify-between gap-4 py-3"
                                     >
                                         <span className="min-w-0">
-                                            <span className="block truncate font-medium">
-                                                {task.name}
-                                            </span>
+                                            {currentTeam ? (
+                                                <Link
+                                                    href={taskShow([
+                                                        currentTeam.slug,
+                                                        task.id,
+                                                    ])}
+                                                    className="block truncate font-medium hover:underline"
+                                                >
+                                                    {task.name}
+                                                </Link>
+                                            ) : (
+                                                <span className="block truncate font-medium">
+                                                    {task.name}
+                                                </span>
+                                            )}
                                             {task.planTitle ? (
                                                 <span className="block truncate text-xs text-muted-foreground">
                                                     plan: {task.planTitle}

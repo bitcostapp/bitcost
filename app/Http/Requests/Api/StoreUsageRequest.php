@@ -7,6 +7,20 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreUsageRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('request_id')) {
+            return;
+        }
+
+        $traceId = $this->header('X-Bitcost-Trace-ID');
+        if (! is_string($traceId) || $traceId === '') {
+            return;
+        }
+
+        $this->merge(['request_id' => $traceId]);
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -28,6 +42,9 @@ class StoreUsageRequest extends FormRequest
             'tokens.cache' => ['nullable', 'array'],
             'tokens.cache.read' => ['nullable', 'integer', 'min:0'],
             'tokens.cache.write' => ['nullable', 'integer', 'min:0'],
+            // CLI-computed turn cost; retained for audit and used as the cost when
+            // the server cannot price the model itself.
+            'cost' => ['nullable', 'numeric', 'min:0'],
             'reported_at' => ['nullable', 'date'],
         ];
     }

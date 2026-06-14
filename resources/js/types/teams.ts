@@ -68,3 +68,41 @@ export type DepartmentTask = {
     currency: string | null;
     planTitle: string | null;
 };
+
+export type TaskDetail = {
+    id: number;
+    name: string;
+    content: string | null;
+    status: string;
+    owner: { name: string };
+    departmentName: string;
+    createdAt: string | null;
+    externalUrl: string | null;
+    externalProvider: string | null;
+};
+
+export type TaskSession = {
+    session: string; // '—' when unattributed
+    turns: number;
+    costTotal: number;
+    tokensInput: number;
+    tokensOutput: number;
+    tokensTotal: number;
+    provider: string;
+    model: string;
+    firstAt: string | null;
+    lastAt: string | null;
+};
+
+export type TaskTotals = {
+    sessionCount: number;
+    turns: number;
+    tokensInput: number;
+    tokensOutput: number;
+    costTotal: number;
+};
+
+export type TaskPlanSummary = {
+    title: string | null;
+    body: string;
+};

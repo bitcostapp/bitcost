@@ -10,7 +10,8 @@ rolls up per Task and per Department.
 
 **Task**:
 A unit of work, **owned by Bitcost** and scoped to a Department (Team) and User. The
-User creates and selects a Task through the Bitcost CLI; a CLI session maps to a Task.
+User creates and selects a Task through the Bitcost CLI; each CLI Session is attributed
+to a Task, and a Task accumulates Usage across one or more Sessions.
 A Task has an `open → completed` lifecycle — once completed it is **locked** (no further
 usage accepted) and disappears from the CLI's task list. A Task may carry an optional
 external link (Jira/GitHub) for future association, but Bitcost is the system of record.
@@ -30,9 +31,17 @@ An external LLM vendor whose API consumes tokens and therefore generates cost �
 Anthropic/Claude, OpenAI. The source of *spend*.
 _Avoid_: "provider" unqualified
 
+**Session**:
+One continuous Bitcost CLI run, attributed to a single Task. Identified by the
+`usages.session` string. A Task accumulates Usage across one or more Sessions; each
+Session groups the per-turn Usage reported during that run. A Session belongs to exactly
+one Task (a Task has many Sessions).
+_Avoid_: conflating Session with Task — they are not 1:1.
+
 **Usage**:
-Tokens consumed by AI Provider requests, attributed to a Task. **Self-reported by the
-Bitcost CLI per AI model-turn** (live) and stored raw; Bitcost prices it into Cost.
+Tokens consumed by AI Provider requests, attributed to a Task (and grouped by Session).
+**Self-reported by the Bitcost CLI per AI model-turn** (live) and stored raw; Bitcost
+prices it into Cost.
 
 **Cost**:
 Usage converted to currency, **computed server-side by Bitcost** from a pricing table

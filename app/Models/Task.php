@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $team_id
  * @property int $user_id
  * @property string $name
+ * @property string|null $content
  * @property TaskStatus $status
  * @property string|null $external_url
  * @property string|null $external_provider
@@ -35,7 +36,7 @@ use Illuminate\Support\Carbon;
  * @property-read int|null $usages_sum_tokens_output
  * @property-read string|null $usages_sum_cost_total
  */
-#[Fillable(['team_id', 'user_id', 'name', 'status', 'external_url', 'external_provider', 'completed_at'])]
+#[Fillable(['team_id', 'user_id', 'name', 'content', 'status', 'external_url', 'external_provider', 'completed_at'])]
 class Task extends Model
 {
     /** @use HasFactory<TaskFactory> */
