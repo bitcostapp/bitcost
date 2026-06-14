@@ -25,18 +25,23 @@ use Illuminate\Support\Carbon;
  * @property int $tokens_cache_write
  * @property string|null $cost_total
  * @property array<string, mixed>|null $cost_breakdown
+ * @property string|null $client_cost_total
  * @property string $currency
  * @property bool $is_subscription
  * @property bool $is_priced
+ * @property string|null $cost_source
  * @property int|null $pricing_id
  * @property Carbon|null $reported_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  * @property-read Task $task
  * @property-read ModelPricing|null $pricing
  */
 #[Fillable([
     'task_id', 'idempotency_key', 'session', 'request_id', 'provider', 'model', 'variant',
     'tokens_input', 'tokens_output', 'tokens_reasoning', 'tokens_cache_read', 'tokens_cache_write',
-    'cost_total', 'cost_breakdown', 'currency', 'is_subscription', 'is_priced', 'pricing_id', 'reported_at',
+    'cost_total', 'cost_breakdown', 'client_cost_total', 'currency', 'is_subscription', 'is_priced',
+    'cost_source', 'pricing_id', 'reported_at',
 ])]
 class Usage extends Model
 {
@@ -78,6 +83,7 @@ class Usage extends Model
             'tokens_cache_write' => 'integer',
             'cost_total' => 'decimal:10',
             'cost_breakdown' => 'array',
+            'client_cost_total' => 'decimal:10',
             'is_subscription' => 'boolean',
             'is_priced' => 'boolean',
             'reported_at' => 'datetime',

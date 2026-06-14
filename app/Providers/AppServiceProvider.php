@@ -2,10 +2,11 @@
 
 namespace App\Providers;
 
+use App\Http\Responses\ApprovedDeviceAuthorizationResponse;
+use App\Services\ModelCatalog;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
-use App\Http\Responses\ApprovedDeviceAuthorizationResponse;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Passport\Contracts\ApprovedDeviceAuthorizationResponse as ApprovedDeviceAuthorizationResponseContract;
@@ -21,6 +22,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             ApprovedDeviceAuthorizationResponseContract::class,
             ApprovedDeviceAuthorizationResponse::class,
+        );
+
+        $this->app->singleton(
+            ModelCatalog::class,
+            fn (): ModelCatalog => new ModelCatalog(
+                (string) config('pricing.catalog_path'),
+            ),
         );
     }
 

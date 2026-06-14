@@ -14,15 +14,18 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class TaskController extends Controller
 {
     /**
      * List the authenticated user's open tasks in their current Department.
      */
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request): JsonResponse
     {
         $user = $request->user();
+        $traceId = $this->traceId($request, 'task-index');
 
         $tasks = Task::query()
             ->open()
@@ -33,7 +36,14 @@ class TaskController extends Controller
             ->latest()
             ->get();
 
-        return TaskResource::collection($tasks);
+        Log::info('bitcost.api.task.index', [
+            'trace_id' => $traceId,
+            'user_id' => $user->id,
+            'team_id' => $user->currentTeam?->id,
+            'count' => $tasks->count(),
+        ]);
+
+        return TaskResource::collection($tasks)->response()->header('X-Bitcost-Trace-ID', $traceId);
     }
 
     /**
@@ -41,9 +51,21 @@ class TaskController extends Controller
      */
     public function store(StoreTaskRequest $request, CreateTask $createTask): JsonResponse
     {
+        $traceId = $this->traceId($request, 'task-create');
         $task = $createTask->handle($request->user(), $request->validated());
 
-        return TaskResource::make($task)->response()->setStatusCode(201);
+        Log::info('bitcost.api.task.store', [
+            'trace_id' => $traceId,
+            'task_id' => $task->id,
+            'user_id' => $request->user()->id,
+            'team_id' => $task->team_id,
+            'name' => $task->name,
+        ]);
+
+        return TaskResource::make($task)
+            ->response()
+            ->setStatusCode(201)
+            ->header('X-Bitcost-Trace-ID', $traceId);
     }
 
     /**
@@ -89,5 +111,15 @@ class TaskController extends Controller
         ]);
 
         return TaskPlanResource::make($plan)->response()->setStatusCode(201);
+    }
+
+    private function traceId(Request $request, string $prefix): string
+    {
+        $traceId = $request->header('X-Bitcost-Trace-ID');
+        if (is_string($traceId) && $traceId !== '') {
+            return $traceId;
+        }
+
+        return $prefix.':'.Str::uuid();
     }
 }

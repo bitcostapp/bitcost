@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ShowTaskController;
 use App\Http\Controllers\Teams\TeamInvitationController;
+use App\Http\Controllers\UpdateTaskController;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
 
@@ -11,6 +13,8 @@ Route::prefix('{current_team}')
     ->middleware(['auth', 'verified', EnsureTeamMembership::class])
     ->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
+        Route::get('tasks/{task}', ShowTaskController::class)->name('tasks.show');
+        Route::patch('tasks/{task}', UpdateTaskController::class)->name('tasks.update');
     });
 
 Route::middleware(['auth'])->group(function () {

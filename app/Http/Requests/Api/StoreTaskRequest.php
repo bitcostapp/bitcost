@@ -16,6 +16,7 @@ class StoreTaskRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'content' => ['nullable', 'string'],
             'external_url' => ['nullable', 'url', 'max:2048'],
             'external_provider' => ['nullable', 'string', 'max:255'],
         ];
